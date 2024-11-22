@@ -14,11 +14,41 @@ class ProductosScreen extends StatefulWidget {
 class _ProductosScreenState extends State<ProductosScreen> {
   final ApiService apiService = ApiService();
   late Future<List<dynamic>> productosFuture;
+  late Future<dynamic> subastaFuture;
 
   @override
   void initState() {
     super.initState();
     productosFuture = apiService.fetchProductosSubastaId(widget.idSubasta);
+    subastaFuture = apiService.fetchSubastaId(widget.idSubasta);
+  }
+
+  Future<String> _calcularGanador(dynamic producto) async {
+    try {
+      // Obtén los detalles de la subasta
+      final subasta = await subastaFuture;
+      DateTime fechaFin = DateTime.parse(subasta['fechaFin']);
+
+      // Verifica si la subasta ya terminó
+      if (DateTime.now().isAfter(fechaFin)) {
+        final ofertas = await apiService.fetchOfertasProductoId(producto['id']);
+        if (ofertas.isNotEmpty) {
+          final mejorOferta =
+              ofertas.reduce((a, b) => a['monto'] > b['monto'] ? a : b);
+          final usuario =
+              await apiService.fetchUsuarioId(mejorOferta['idUsuario']);
+          return "Ganador: ${usuario['nombre']} ${usuario['apellido']}, "
+              "con una oferta de \$${mejorOferta['monto']}";
+        } else {
+          return "No hubo ofertas para este producto.";
+        }
+      } else {
+        // Si la subasta no ha terminado, muestra el nombre y descripción
+        return "${producto['nombre']}: ${producto['descripcion']}";
+      }
+    } catch (e) {
+      return "Error al calcular el ganador.";
+    }
   }
 
   @override
@@ -54,7 +84,19 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 return Card(
                   child: ListTile(
                     title: Text(producto['nombre']),
-                    subtitle: Text(producto['descripcion']),
+                    subtitle: FutureBuilder<String>(
+                      future: _calcularGanador(producto),
+                      builder: (context, ganadorSnapshot) {
+                        if (ganadorSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Text("Calculando...");
+                        } else if (ganadorSnapshot.hasError) {
+                          return Text("Error: ${ganadorSnapshot.error}");
+                        } else {
+                          return Text(ganadorSnapshot.data ?? '');
+                        }
+                      },
+                    ),
                     onTap: () {
                       Navigator.push(
                         context,
