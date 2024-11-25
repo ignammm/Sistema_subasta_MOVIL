@@ -43,11 +43,10 @@ class _ProductosScreenState extends State<ProductosScreen> {
           return "No hubo ofertas para este producto.";
         }
       } else {
-        // Si la subasta no ha terminado, muestra el nombre y descripción
         return "${producto['nombre']}: ${producto['descripcion']}";
       }
     } catch (e) {
-      return "Error al calcular el ganador.";
+      return "No recibio ninguna oferta.";
     }
   }
 
